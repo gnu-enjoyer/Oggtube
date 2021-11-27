@@ -1,0 +1,28 @@
+version: 13
+jobs:
+- name: Build
+  jobExecutor: Local-Docker
+  steps:
+  - !CommandStep
+    name: Build-Ubuntu
+    image: ubuntu:20.04
+    commands:
+    - apt-get update
+    - DEBIAN_FRONTEND="noninteractive" TZ="America/New_York" apt-get install -y --no-install-recommends
+      build-essential git g++ tar curl zip unzip cmake ninja-build openssl ca-certificates
+      libssl-dev nasm libcpprest-dev pkg-config make libavutil-dev libavcodec-dev
+      libavformat-dev zlib1g libre2-dev
+    - curl -u gnu-enjoyer:@secret:builderpass@ http://127.0.0.1:6610/projects/6/archive/master?format=zip
+      -L -o Oggtube.zip
+    - unzip Oggtube.zip -d Oggtube-master
+    - cd Oggtube-master
+    - cmake -B x64ubuntu -S . -DCMAKE_BUILD_TYPE=Debug
+    - cmake --build x64ubuntu
+    useTTY: false
+    condition: ALL_PREVIOUS_STEPS_WERE_SUCCESSFUL
+  retryCondition: never
+  maxRetries: 3
+  retryDelay: 30
+  cpuRequirement: 500
+  memoryRequirement: 256
+  timeout: 3600
