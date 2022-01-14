@@ -1,70 +1,49 @@
 cmake_minimum_required(VERSION 3.16)
-
 project(Oggtube)
+include(FetchContent)
+set(CMAKE_CXX_STANDARD 20)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+include_directories(include)
 
-include_directories(${PROJECT_SOURCE_DIR}/includes)
+find_package(PkgConfig REQUIRED)
+find_package(OpenSSL REQUIRED)
 
-add_library(${PROJECT_NAME}
-        sources/oggtube.cpp
-        sources/demux.cpp
-        sources/rest.cpp
+FetchContent_Declare(
+        zlib
+        GIT_REPOSITORY "https://github.com/madler/zlib"
+        GIT_TAG "cacf7f1d4e3d44d871b605da3b647f07d718623f"
+)
+
+FetchContent_Declare(
+        simdjson
+        GIT_REPOSITORY "https://github.com/simdjson/simdjson"
+        GIT_TAG "17f3148ac73da9895bdbd26ed2c4848fd77571a8"
+)
+
+FetchContent_Declare(
+        re2
+        GIT_REPOSITORY "https://github.com/google/re2"
+        GIT_TAG "0dade9ff39bb6276f18dd6d4bc12d3c20479ee24"
+)
+
+FetchContent_MakeAvailable(zlib simdjson re2)
+
+pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
+        libavformat
+        libavcodec
+        libavutil
         )
+add_executable(${PROJECT_NAME}
+        src/utils.cpp
+        src/decipher.cpp
+        src/oggtube.cpp
+        src/muxxer.cpp
+        src/main.cpp)
 
-add_executable(OggtubeCLI
-        example/main.cpp
+target_link_libraries(${PROJECT_NAME}
+        PkgConfig::LIBAV
+        OpenSSL::SSL OpenSSL::Crypto
+        zlib
+        simdjson
+        re2
         )
-
-if (WIN32)
-
-    #vcpkg
-    find_package(FFMPEG REQUIRED)
-    find_package(re2 CONFIG REQUIRED)
-    find_package(cpprestsdk REQUIRED)
-    find_package(OpenSSL REQUIRED)
-
-    target_include_directories(${PROJECT_NAME} PRIVATE ${FFMPEG_INCLUDE_DIRS})
-    target_link_directories(${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARY_DIRS})
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARIES})
-
-    target_link_libraries(${PROJECT_NAME} PRIVATE
-            re2::re2
-            cpprestsdk::cpprest
-            OpenSSL::SSL OpenSSL::Crypto
-            )
-
-else()
-
-    #pkgconfig
-    find_package(PkgConfig REQUIRED)
-
-    pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
-            libavformat
-            libavcodec
-            libavutil
-            )
-
-        target_link_libraries(${PROJECT_NAME}
-            PkgConfig::LIBAV)
-
-    pkg_check_modules(RE2 re2)
-    if(RE2_FOUND)
-        add_library(re2::re2 INTERFACE IMPORTED)
-        set_target_properties(re2::re2 PROPERTIES
-                INTERFACE_COMPILE_OPTIONS "${RE2_CFLAGS}"
-                INTERFACE_LINK_LIBRARIES "${RE2_LDFLAGS}"
-                )
-        target_link_libraries(${PROJECT_NAME} re2::re2)
-    endif()
-
-    find_package(cpprestsdk REQUIRED)
-    find_package(OpenSSL REQUIRED)
-    target_link_libraries(${PROJECT_NAME}
-            cpprestsdk::cpprest
-            OpenSSL::SSL OpenSSL::Crypto)
-
-endif()
-
-target_link_libraries(OggtubeCLI PRIVATE ${PROJECT_NAME})
