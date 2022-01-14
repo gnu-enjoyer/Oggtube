@@ -8,24 +8,20 @@ class Regexes {
 
 public:
 
+    ~Regexes();
     std::vector<void*> re_list;
     Regexes(std::initializer_list<void*> rgx) : re_list(rgx) {}
 
 };
 
 class Decipher {
-    public:
-        static Decipher &Instance(const std::string &p_video_html) {
-            static Decipher _instance(p_video_html);
-            return _instance;
-        }
+    Decipher() = default;
 
-        void DecipherSignature(std::string *p_signature);
+    static Regexes* AllocateRegex();
+    Regexes* rPtr = nullptr;
 
-    private:
-        Decipher() = default;
-
-        explicit Decipher(const std::string &p_video_html) {
+    explicit Decipher(const std::string &p_video_html) {
+            rPtr = AllocateRegex();
             LoadDecipher(p_video_html);
         }
 
@@ -58,6 +54,16 @@ class Decipher {
         std::string m_sub_swap_name;
 
         std::vector<std::tuple<std::string, int>> m_decipher;
+
+public:
+
+    static Decipher &Instance(const std::string &p_video_html) {
+        static Decipher _instance(p_video_html);
+        return _instance;
+    }
+
+    void DecipherSignature(std::string *p_signature);
+
     };
 
 

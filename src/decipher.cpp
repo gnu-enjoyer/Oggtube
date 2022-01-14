@@ -3,15 +3,30 @@
 #include "re2/re2.h"
 #include <regex>
 
-static const Regexes rgx({
-                                 new RE2(R"(\b[cs]\s*&&\s*[adf]\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\()"),
-                                 new RE2(R"(\b[a-zA-Z0-9]+\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\()"),
-                                 new RE2(R"(\bm=([a-zA-Z0-9$]{2})\(decodeURIComponent\(h\.s\)\))"),
-                                 new RE2(R"(\bc&&\(c=([a-zA-Z0-9$]{2})\(decodeURIComponent\(c\)\))"),
-                                 new RE2(R"((?:\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2})\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\);[a-zA-Z0-9$]{2}\.[a-zA-Z0-9$]{2}\(a,\d+\))"),
-                                 new RE2(R"((?:\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2})\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\))"),
-                                 new RE2(R"(([a-zA-Z0-9$]+)\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\))")
-                         });
+
+Regexes* Decipher::AllocateRegex() {
+
+    static Regexes rgx({
+                               new RE2(R"(\b[cs]\s*&&\s*[adf]\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\()"),
+                               new RE2(R"(\b[a-zA-Z0-9]+\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\()"),
+                               new RE2(R"(\bm=([a-zA-Z0-9$]{2})\(decodeURIComponent\(h\.s\)\))"),
+                               new RE2(R"(\bc&&\(c=([a-zA-Z0-9$]{2})\(decodeURIComponent\(c\)\))"),
+                               new RE2(R"((?:\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2})\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\);[a-zA-Z0-9$]{2}\.[a-zA-Z0-9$]{2}\(a,\d+\))"),
+                               new RE2(R"((?:\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2})\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\))"),
+                               new RE2(R"(([a-zA-Z0-9$]+)\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\))")
+                       });
+
+    return &rgx;
+
+}
+
+Regexes::~Regexes() {
+
+    for (auto &r : re_list){
+        delete(static_cast<RE2*>(r));
+    }
+
+}
 
 std::string Decipher::LoadDecipherFuncName(const std::string &p_decipher_js) {
     int x = 0;
@@ -19,7 +34,8 @@ std::string Decipher::LoadDecipherFuncName(const std::string &p_decipher_js) {
     re2::StringPiece z;
 
 
-    for (auto &e: rgx.re_list) {
+//    for (auto &e: rgx.re_list) {
+    for (auto &e: rPtr->re_list) {
         if (static_cast<RE2*>(e)->ok()) {
             auto found = static_cast<RE2*>(e)->Match(p_decipher_js, 0, p_decipher_js.size(), RE2::UNANCHORED, &y, x);
 
@@ -34,7 +50,6 @@ std::string Decipher::LoadDecipherFuncName(const std::string &p_decipher_js) {
     throw std::runtime_error("Could not find decipher function name!");
 
 }
-
 
 /*
  * Code below is copyright (c) 2018 Linus Kloeckner
@@ -187,5 +202,4 @@ void Decipher::SubSwap(std::string *p_a, int p_b) {
     (*p_a)[0] = (*p_a)[p_b % p_a->length()];
     (*p_a)[p_b] = c;
 }
-
 

@@ -125,6 +125,11 @@ bool Muxxer::transmux(const char *in_filename, const char *out_filename) {
     }
 
     av_write_trailer(output_format_context);
+
+    free(streams_list);
+    avformat_close_input(&input_format_context);
+    avformat_close_input(&output_format_context);
+
     return true;
 
 }
