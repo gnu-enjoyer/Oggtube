@@ -1,37 +1,24 @@
-#ifndef OGGTUBE_PRIVATE_HEADER
-#define OGGTUBE_PRIVATE_HEADER
-
-/*
- * Acknowledgements:
- * Oggtube uses a combination of Microsoft's REST C++ SDK, Google's RE2 for generating precompiled regex
- * Kloeckner's JS decryption algorithms and FFmpeg's libavcodec for media transmuxing.
- */
+#ifndef OGGTUBE_DECIPHER_H
+#define OGGTUBE_DECIPHER_H
 
 #include <vector>
 #include <string>
 
-namespace Oggtube {
+class Regexes {
 
-    class regexes {
-    public:
+public:
 
-        std::vector<void*> re_list;
-        regexes(std::initializer_list<void*> rgx) : re_list(rgx) {}
+    std::vector<void*> re_list;
+    Regexes(std::initializer_list<void*> rgx) : re_list(rgx) {}
 
-    };
-    int parse_input(std::string &in);
+};
 
-    void replaceAll(std::string &source, const std::string_view &from, const std::string_view &to);
-    void HTMLtoUTF8(std::string &scraped);
-}
-
-namespace kloeckner {
-    class Decipher {
+class Decipher {
     public:
         static Decipher &Instance(const std::string &p_video_html) {
             static Decipher _instance(p_video_html);
             return _instance;
-       }
+        }
 
         void DecipherSignature(std::string *p_signature);
 
@@ -72,10 +59,6 @@ namespace kloeckner {
 
         std::vector<std::tuple<std::string, int>> m_decipher;
     };
-}
 
 
-
-
-
-#endif // OGGTUBE_PRIVATE_HEADER
+#endif //OGGTUBE_DECIPHER_H

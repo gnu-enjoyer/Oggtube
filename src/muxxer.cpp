@@ -1,5 +1,5 @@
-#include "demux.h"
-#include <iostream>
+#include "muxxer.h"
+#include "utils.h"
 
 //FFmpeg
 extern "C" {
@@ -11,13 +11,12 @@ extern "C" {
 //Required as C++ does not allow an int to be implicitly converted to a enum
 inline AVRounding operator|(AVRounding a, AVRounding b) {
     return static_cast<AVRounding>(static_cast<int>(a) | static_cast<int>(b));
+
 }
 
-Oggtube::muxxer::muxxer() {
-    packet_pos = -1;
-}
+//Transmux is a blocking operation which can be quite slow depending on network I/O
+bool Muxxer::transmux(const char *in_filename, const char *out_filename) {
 
-void Oggtube::muxxer::transmux(const char *in_filename, const char *out_filename) {
 
     AVFormatContext *input_format_context = NULL;
     AVFormatContext *output_format_context = NULL;
@@ -28,23 +27,24 @@ void Oggtube::muxxer::transmux(const char *in_filename, const char *out_filename
 
     /* In */
     if ((ret = avformat_open_input(&input_format_context, in_filename, NULL, NULL)) < 0) {
-        fprintf(stderr, "Could not open input file '%s'", in_filename);
+        Logger::get().write("[Muxxer] Could not open input file!",true);
         if(reattempt) {
+            Logger::get().write("[Muxxer] Trying again...",false);
             reattempt = false;
             goto start;
-        } else return;
+        } else return false;
     }
     if ((ret = avformat_find_stream_info(input_format_context, NULL)) < 0) {
-        fprintf(stderr, "Failed to retrieve input stream information");
-        return;
+        Logger::get().write("[Muxxer] Failed to retrieve input stream information", true);
+        return false;
     }
 
     /* Out */
     avformat_alloc_output_context2(&output_format_context, NULL, NULL, out_filename);
     if (!output_format_context) {
-        fprintf(stderr, "Could not create output context\n");
+        Logger::get().write("[Muxxer] Could not create output context", true);
         ret = 1;
-        return;
+        return false;
     }
 
     int *streams_list = NULL;
@@ -67,33 +67,32 @@ void Oggtube::muxxer::transmux(const char *in_filename, const char *out_filename
         streams_list[i] = stream_index++;
         out_stream = avformat_new_stream(output_format_context, NULL);
         if (!out_stream) {
-            fprintf(stderr, "Failed allocating output stream\n");
+            Logger::get().write("[Muxxer] Failed allocating output stream", true);
             ret = AVERROR_UNKNOWN;
-            return;
+            return false;
         }
         ret = avcodec_parameters_copy(out_stream->codecpar, in_codecpar);
         if (ret < 0) {
-            fprintf(stderr, "Failed to copy codec parameters\n");
-            return;
+            Logger::get().write("[Muxxer] Failed to copy codec parameters", true);
+            return false;
         }
     }
 
     if (!(output_format_context->oformat->flags & AVFMT_NOFILE)) {
         ret = avio_open(&output_format_context->pb, out_filename, AVIO_FLAG_WRITE);
         if (ret < 0) {
-            fprintf(stderr, "Could not open output file '%s'", out_filename);
-            return;
+            Logger::get().write("[Muxxer] Could not open output file", true);
+            return false;
         }
     }
 
     ret = avformat_write_header(output_format_context, NULL);
     if (ret < 0) {
-        fprintf(stderr, "Error occurred when opening output file\n");
-        return;
+        Logger::get().write("[Muxxer] Error occurred when opening output file", true);
+        return false;
     }
 
     AVPacket packet;
-    this->packet_pos = 0;
 
     while (1) {
         AVStream *in_stream, *out_stream;
@@ -117,16 +116,15 @@ void Oggtube::muxxer::transmux(const char *in_filename, const char *out_filename
 
         ret = av_interleaved_write_frame(output_format_context, &packet);
         if (ret < 0) {
-            fprintf(stderr, "Error muxing packet\n");
+            Logger::get().write("[Muxxer] Error muxing packet", true);
             break;
         }
         av_packet_unref(&packet);
-
         //write callback pos?
-        this->packet_pos++;
 
     }
 
     av_write_trailer(output_format_context);
-    return;
+    return true;
+
 }
