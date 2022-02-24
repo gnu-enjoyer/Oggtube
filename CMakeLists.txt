@@ -47,3 +47,8 @@ target_link_libraries(${PROJECT_NAME}
         simdjson
         re2
         )
+        
+enable_testing()
+add_test(oggtube_test
+        Oggtube
+        )
