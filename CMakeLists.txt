@@ -33,20 +33,29 @@ pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
         libavcodec
         libavutil
         )
+
 add_executable(${PROJECT_NAME}
         src/utils.cpp
         src/decipher.cpp
         src/oggtube.cpp
         src/muxxer.cpp
-        src/main.cpp)
+        src/main.cpp
+        )
 
-target_link_libraries(${PROJECT_NAME}
+add_library(OggtubeLib
+        INTERFACE)
+
+target_link_libraries(OggtubeLib
+        INTERFACE
         PkgConfig::LIBAV
         OpenSSL::SSL OpenSSL::Crypto
-        zlib
+        libz.a
         simdjson
         re2
         )
+
+target_link_libraries(${PROJECT_NAME}
+        OggtubeLib)
         
 enable_testing()
 add_test(oggtube_test
