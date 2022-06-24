@@ -32,7 +32,17 @@
 *.app
 
 # CMake
-/cmake-build-debug
+cmake-build-debug
+CMakeFiles
+CMakeCache.txt
 
 # IDEs
 .idea
+.vscode
+
+# artefacts
+build
+.cache
+
+# dependencies
+_deps
