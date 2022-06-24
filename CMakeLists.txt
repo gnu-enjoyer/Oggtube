@@ -1,11 +1,17 @@
 cmake_minimum_required(VERSION 3.16)
+
 project(Oggtube)
+
 include(FetchContent)
+
+include (CTest)
+
 set(CMAKE_CXX_STANDARD 20)
 
 include_directories(include)
 
 find_package(PkgConfig REQUIRED)
+
 find_package(OpenSSL REQUIRED)
 
 FetchContent_Declare(
@@ -58,6 +64,14 @@ target_link_libraries(${PROJECT_NAME}
         OggtubeLib)
         
 enable_testing()
+
 add_test(oggtube_test
         Oggtube
         )
+
+find_program(VALGRIND "valgrind")
+
+if(VALGRIND)
+    add_custom_target(valgrind
+        COMMAND "${VALGRIND}" --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes $<TARGET_FILE:Oggtube>)
+endif()

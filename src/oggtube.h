@@ -7,16 +7,18 @@
 class Oggtube {
 
     const size_t npos = std::string::npos;
+
     std::string buffer;
 
 public:
+    void download(size_t pos);
 
     bool parse(const char* in);
-    std::string* getBufferPtr();
 
-    Oggtube();
-    ~Oggtube() = default;
-
+    inline std::string* getBufferPtr()  
+    {
+        return buffer.empty() ? nullptr : &buffer;
+    }
 };
 
 

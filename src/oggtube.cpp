@@ -4,21 +4,10 @@
 #include "decipher.h"
 #include <iosfwd>
 
-Oggtube::Oggtube() {
+void Oggtube::download(size_t pos){
 
-}
+    size_t endpos = buffer.find("},{", pos); 
 
-bool Oggtube::parse(const char* in) {
-
-    std::string path = "/watch?v=";
-    path.append(in);
-
-    Utils::yt_to_string(path.c_str(), buffer);
-    Utils::HTMLtoUTF8(buffer);
-
-    size_t pos = buffer.find(":249"); //ytInitialPlayerResponse for all itags, later
-    if(pos == npos) return false;
-    size_t endpos = buffer.find("},{", pos); //:250?
     std::string json = "{\"itag\"";
 
     for (pos; pos < endpos; ++pos) {
@@ -28,7 +17,9 @@ bool Oggtube::parse(const char* in) {
     json.append("}");
 
     simdjson::ondemand::parser parser;
+
     simdjson::padded_string padded_json{json};
+
     simdjson::ondemand::document itag = parser.iterate(padded_json);
 
     std::stringstream js;
@@ -37,11 +28,12 @@ bool Oggtube::parse(const char* in) {
         js << itag["url"].get_string();
         buffer = js.view();
         Utils::HTMLtoUTF8(buffer);
-        return true;
+        return;
     }
 
 
     std::string extracted_cipher;
+
     js << itag["signatureCipher"];
 
     for(auto &c : js.view()){
@@ -56,24 +48,30 @@ bool Oggtube::parse(const char* in) {
     extracted_cipher.erase(0, 3);
 
     Decipher Crypto = Decipher::Instance(buffer);
+
     Crypto.DecipherSignature(&extracted_cipher);
 
     buffer = url;
+
     buffer.pop_back();
 
-    buffer.append("&sig=");
-    buffer.append(extracted_cipher);
-
-    return true;
-
+    buffer.append("&sig=" + extracted_cipher);
 }
 
-std::string* Oggtube::getBufferPtr() {
+bool Oggtube::parse(const char* in) {
 
-    if(buffer.empty())
-        return nullptr;
+    std::string path = "/watch?v=";
 
-    return &buffer;
+    path.append(in);
 
+    Utils::yt_to_string(path.c_str(), buffer);
+
+    Utils::HTMLtoUTF8(buffer);
+
+    size_t pos = buffer.find(":249"); //ytInitialPlayerResponse for all itags, later
+
+    if(pos != npos)
+        download(pos);
+
+    return(pos != npos);
 }
-
