@@ -73,5 +73,5 @@ find_program(VALGRIND "valgrind")
 
 if(VALGRIND)
     add_custom_target(valgrind
-        COMMAND "${VALGRIND}" --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes $<TARGET_FILE:Oggtube>)
+        COMMAND "${VALGRIND}" --tool=memcheck --track-origins=yes --leak-check=full --show-reachable=no --num-callers=20 --track-fds=yes $<TARGET_FILE:Oggtube>)
 endif()

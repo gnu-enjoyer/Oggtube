@@ -1,34 +1,44 @@
-#include <iostream>
-#include "oggtube.h"
 #include "muxxer.h"
+#include "oggtube.h"
+#include <iostream>
+
+#include "ut.h"
 
 /*
  * Acknowledgements:
  * Oggtube primarily uses Google's RE2 for generating precompiled regex,
- * Kloeckner's JS decryption algorithms,
+ * Kloeckner's JS decryption algorithms, Boost μt for tests,
  * and FFmpeg's libavcodec for media transmuxing.
  */
 
 int main() {
 
-    ///examples:
-    auto oggt = Oggtube();
+  using namespace boost::ut;
 
-    ///with Ogg muxxing:
-    auto muxxy = Muxxer();
+  /// examples:
+  auto oggt = Oggtube();
 
-    if(oggt.parse("lhl9i9CI2-E")){
-        std::cout << *oggt.getBufferPtr();
-        muxxy.transmux(oggt.getBufferPtr()->c_str(), "test.ogg");
+  "Oggtube"_test = [&oggt] {
+    if (auto result = oggt.parse("lhl9i9CI2-E")) {
+      std::cout << *oggt.getBufferPtr();
+
+      auto Mux = Muxxer(oggt.getBufferPtr()->c_str(), "test.ogg");
+
+      expect(result) << "with Ogg muxxing";
     }
+  };
 
-    ///without Ogg muxxing:
+  "No Muxxing"_test = [&oggt] {
     std::cout << "\n";
 
-    if(oggt.parse("0FhFMkd4u_U")) {
-        std::cout << *oggt.getBufferPtr();
-        //Your muxxing solution here
-    }
+    if (auto result = oggt.parse("0FhFMkd4u_U")) {
+      std::cout << *oggt.getBufferPtr();
 
-    return 0;
+      // Your muxxing solution here
+
+      expect(result) << "without Ogg muxxing";
+    }
+  };
+
+  return 0;
 }

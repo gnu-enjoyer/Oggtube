@@ -1,5 +1,6 @@
 #include "muxxer.h"
 #include "utils.h"
+#include "ut.h"
 
 //FFmpeg
 extern "C" {
@@ -11,50 +12,27 @@ extern "C" {
 //Required as C++ does not allow an int to be implicitly converted to a enum
 inline AVRounding operator|(AVRounding a, AVRounding b) {
     return static_cast<AVRounding>(static_cast<int>(a) | static_cast<int>(b));
-
 }
 
-//Transmux is a blocking operation which can be quite slow depending on network I/O
-bool Muxxer::transmux(const char *in_filename, const char *out_filename) {
+Muxxer::Muxxer(const char *in_filename, const char *out_filename){    
+    using namespace boost::ut;
 
-
-    AVFormatContext *input_format_context = NULL;
-    AVFormatContext *output_format_context = NULL;
-
-    int ret;
-    int reattempt = true;
-    start:
+    int ret = 0;
 
     /* In */
-    if ((ret = avformat_open_input(&input_format_context, in_filename, NULL, NULL)) < 0) {
-        Logger::get().write("[Muxxer] Could not open input file!",true);
-        if(reattempt) {
-            Logger::get().write("[Muxxer] Trying again...",false);
-            reattempt = false;
-            goto start;
-        } else return false;
-    }
-    if ((ret = avformat_find_stream_info(input_format_context, NULL)) < 0) {
-        Logger::get().write("[Muxxer] Failed to retrieve input stream information", true);
-        return false;
-    }
+    expect(avformat_open_input(&input_format_context, in_filename, nullptr, nullptr) == 0) << "Could not open input file!";
+
+    expect(avformat_find_stream_info(input_format_context, nullptr) == 0) << "Failed to retrieve input stream information";
 
     /* Out */
-    avformat_alloc_output_context2(&output_format_context, NULL, NULL, out_filename);
-    if (!output_format_context) {
-        Logger::get().write("[Muxxer] Could not create output context", true);
-        ret = 1;
-        return false;
-    }
-
-    int *streams_list = NULL;
-    int stream_index = 0;
-    int number_of_streams = 0;
+    expect(avformat_alloc_output_context2(&output_format_context, nullptr, nullptr, out_filename) == 0) << "Could not create output context";
 
     number_of_streams = input_format_context->nb_streams;
+
     streams_list = (int *) av_mallocz_array(number_of_streams, sizeof(*streams_list));
 
     for (unsigned int i = 0; i < input_format_context->nb_streams; i++) {
+
         AVStream *out_stream;
         AVStream *in_stream = input_format_context->streams[i];
         AVCodecParameters *in_codecpar = in_stream->codecpar;
@@ -65,32 +43,18 @@ bool Muxxer::transmux(const char *in_filename, const char *out_filename) {
             continue;
         }
         streams_list[i] = stream_index++;
-        out_stream = avformat_new_stream(output_format_context, NULL);
-        if (!out_stream) {
-            Logger::get().write("[Muxxer] Failed allocating output stream", true);
-            ret = AVERROR_UNKNOWN;
-            return false;
-        }
-        ret = avcodec_parameters_copy(out_stream->codecpar, in_codecpar);
-        if (ret < 0) {
-            Logger::get().write("[Muxxer] Failed to copy codec parameters", true);
-            return false;
-        }
+
+        out_stream = avformat_new_stream(output_format_context, nullptr);
+
+        expect(out_stream) << "Failed allocating output stream";
+
+        expect(avcodec_parameters_copy(out_stream->codecpar, in_codecpar) == 0) << "Failed to copy codec parameter";
     }
 
-    if (!(output_format_context->oformat->flags & AVFMT_NOFILE)) {
-        ret = avio_open(&output_format_context->pb, out_filename, AVIO_FLAG_WRITE);
-        if (ret < 0) {
-            Logger::get().write("[Muxxer] Could not open output file", true);
-            return false;
-        }
-    }
+    if (!(output_format_context->oformat->flags & AVFMT_NOFILE))
+        expect(avio_open(&output_format_context->pb, out_filename, AVIO_FLAG_WRITE) == 0) << "Could not open output file";
 
-    ret = avformat_write_header(output_format_context, NULL);
-    if (ret < 0) {
-        Logger::get().write("[Muxxer] Error occurred when opening output file", true);
-        return false;
-    }
+    expect(avformat_write_header(output_format_context, nullptr) == 0) << "Error occurred when opening output file";
 
     AVPacket packet;
 
@@ -104,7 +68,9 @@ bool Muxxer::transmux(const char *in_filename, const char *out_filename) {
             av_packet_unref(&packet);
             continue;
         }
+
         packet.stream_index = streams_list[packet.stream_index];
+
         out_stream = output_format_context->streams[packet.stream_index];
 
         packet.pts = av_rescale_q_rnd(packet.pts, in_stream->time_base, out_stream->time_base,
@@ -112,24 +78,28 @@ bool Muxxer::transmux(const char *in_filename, const char *out_filename) {
         packet.dts = av_rescale_q_rnd(packet.dts, in_stream->time_base, out_stream->time_base,
                                       AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX);
         packet.duration = av_rescale_q(packet.duration, in_stream->time_base, out_stream->time_base);
-        packet.pos = -1;
 
-        ret = av_interleaved_write_frame(output_format_context, &packet);
-        if (ret < 0) {
-            Logger::get().write("[Muxxer] Error muxing packet", true);
+        packet.pos = -1;      
+            
+        if(ret = av_interleaved_write_frame(output_format_context, &packet); ret !=0)
             break;
-        }
-        av_packet_unref(&packet);
-        //write callback pos?
 
+        av_packet_unref(&packet);
+
+        //write callback pos?
+        //one day
     }
 
+    expect(ret != 0) << "Error muxing packet";
+
     av_write_trailer(output_format_context);
-
-    free(streams_list);
-    avformat_close_input(&input_format_context);
-    avformat_close_input(&output_format_context);
-
-    return true;
-
 }
+
+Muxxer::~Muxxer(){
+    free(streams_list);
+
+    avformat_close_input(&input_format_context);
+
+    avformat_close_input(&output_format_context);
+}
+
