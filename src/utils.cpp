@@ -1,77 +1,44 @@
 #define CPPHTTPLIB_OPENSSL_SUPPORT
 #define CPPHTTPLIB_ZLIB_SUPPORT
 #define CPPHTTPLIB_THREAD_POOL_COUNT 1
+
 #include "httplib.h"
 #include "utils.h"
+#include "fmt/format.h"
+#include "fmt/chrono.h"
 #include <ctime>
 
-void Logger::write(const char *in, bool err) {
+#include <locale>
 
-    std::time_t time = std::time(0);
-    *logfile << std::asctime(std::localtime(&time));
+void Logger::write(const std::string& str, bool err ) const {
 
-    err ? *logfile << " [ERROR] " << in << std::endl : *logfile << " [INFO] " << in << std::endl;
+    std::scoped_lock lock(mtx);
 
-}
+    std::ofstream logfile("log.txt", std::ofstream::app);
 
-bool Utils::yt_to_string(const char *in, std::string &buff) {
+    logfile << fmt::format("{0:%F_%T}", std::chrono::system_clock::now());
 
-        httplib::Headers headers = {
+    err ? logfile << " [ERROR] " << str << std::endl : logfile << " [INFO] " << str << std::endl;
+
+}  
+
+bool Utils::yt_to_string(const std::string& str, std::string &buff) {
+
+    httplib::Headers headers = {
                 {"User-Agent",      "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0"},
                 {"Accept-Encoding", "gzip"},
                 {"Keep-Alive",      "0"}
-        };
+    };
 
+    httplib::Client cli("https://www.youtube.com");
 
-        httplib::Client cli("https://www.youtube.com");
+    cli.set_keep_alive(false);
 
-        cli.set_keep_alive(false);
+    auto res = cli.Get(str.c_str(), headers);    
 
-        if(auto res = cli.Get(in, headers)){
+    if(!res || res->status != 200) return false;
 
-            if (res->status != 200) return false;
+    buff = res->body;
 
-            buff = res->body;
-
-            return true;
-
-        }else{
-
-            Logger::get().write("[Utils] Network error.", true);
-            return false;
-
-        }
-
-}
-
-void Utils::HTMLtoUTF8(std::string &scraped) {
-
-    //TBD: refactor
-    replaceAll(scraped, "%25", "%");
-    replaceAll(scraped, "%26", "&");
-    replaceAll(scraped, "%2C", ",");
-    replaceAll(scraped, "%2F", "/");
-    replaceAll(scraped, "%3A", ":");
-    replaceAll(scraped, "%3D", "=");
-    replaceAll(scraped, "%3F", "?");
-
-}
-
-void Utils::replaceAll(std::string &source, const std::string_view &from, const std::string_view &to) {
-    std::string newString;
-    newString.reserve(source.length());
-
-    std::string::size_type lastPos = 0;
-    std::string::size_type findPos;
-
-    while (std::string::npos != (findPos = source.find(from, lastPos))) {
-        newString.append(source, lastPos, findPos - lastPos);
-        newString += to;
-        lastPos = findPos + from.length();
-    }
-
-    newString += source.substr(lastPos);
-
-    source.swap(newString);
-
+    return res->status == 200;
 }

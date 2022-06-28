@@ -46,7 +46,7 @@ std::string Decipher::LoadDecipherFuncName(const std::string &p_decipher_js) {
         }
     }
 
-    Logger::get().write("[Decrypt] Could not find decipher function name!", true);
+    Log.write("[Decrypt] Could not find decipher function name!", true);
     throw std::runtime_error("Could not find decipher function name!");
 
 }

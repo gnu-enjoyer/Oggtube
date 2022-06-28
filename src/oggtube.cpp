@@ -10,9 +10,8 @@ void Oggtube::download(size_t pos){
 
     std::string json = "{\"itag\"";
 
-    for (pos; pos < endpos; ++pos) {
-        json.push_back(buffer.at(pos));
-    }
+    for (pos; pos < endpos; ++pos)
+        json.push_back(buffer.at(pos));    
 
     json.append("}");
 
@@ -27,10 +26,8 @@ void Oggtube::download(size_t pos){
     if(json.find("signatureCipher") == npos) {
         js << itag["url"].get_string();
         buffer = js.view();
-        Utils::HTMLtoUTF8(buffer);
         return;
     }
-
 
     std::string extracted_cipher;
 
@@ -65,8 +62,6 @@ bool Oggtube::parse(const char* in) {
     path.append(in);
 
     Utils::yt_to_string(path.c_str(), buffer);
-
-    Utils::HTMLtoUTF8(buffer);
 
     size_t pos = buffer.find(":249"); //ytInitialPlayerResponse for all itags, later
 

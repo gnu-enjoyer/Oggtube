@@ -32,7 +32,13 @@ FetchContent_Declare(
         GIT_TAG "0dade9ff39bb6276f18dd6d4bc12d3c20479ee24"
 )
 
-FetchContent_MakeAvailable(zlib simdjson re2)
+FetchContent_Declare(
+        fmt
+        GIT_REPOSITORY  https://github.com/fmtlib/fmt.git
+        GIT_TAG b6f4ceaed0a0a24ccf575fab6c56dd50ccf6f1a9
+)
+
+FetchContent_MakeAvailable(zlib simdjson re2 fmt)
 
 pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
         libavformat
@@ -58,6 +64,7 @@ target_link_libraries(OggtubeLib
         libz.a
         simdjson
         re2
+        fmt
         )
 
 target_link_libraries(${PROJECT_NAME}

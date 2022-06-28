@@ -1,6 +1,7 @@
 #include "muxxer.h"
 #include "utils.h"
 #include "ut.h"
+#include <stdexcept>
 
 //FFmpeg
 extern "C" {
@@ -20,7 +21,8 @@ Muxxer::Muxxer(const char *in_filename, const char *out_filename){
     int ret = 0;
 
     /* In */
-    expect(avformat_open_input(&input_format_context, in_filename, nullptr, nullptr) == 0) << "Could not open input file!";
+    if(avformat_open_input(&input_format_context, in_filename, nullptr, nullptr) != 0)
+        throw std::runtime_error("Could not open input file!");
 
     expect(avformat_find_stream_info(input_format_context, nullptr) == 0) << "Failed to retrieve input stream information";
 
