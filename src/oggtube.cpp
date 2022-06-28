@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "router.h"
 #include "oggtube.h"
 #include "simdjson.h"
 #include "decipher.h"
@@ -55,15 +55,15 @@ void Oggtube::download(size_t pos){
     buffer.append("&sig=" + extracted_cipher);
 }
 
-bool Oggtube::parse(const char* in) {
+bool Oggtube::parse(const std::string& str, const std::string& itag) {
 
     std::string path = "/watch?v=";
 
-    path.append(in);
+    path.append(str);
 
-    Utils::yt_to_string(path.c_str(), buffer);
+    Parser::yt_to_string(path, buffer);
 
-    size_t pos = buffer.find(":249"); //ytInitialPlayerResponse for all itags, later
+    size_t pos = buffer.find(itag); //ytInitialPlayerResponse for all itags, later // 248? or 250?
 
     if(pos != npos)
         download(pos);

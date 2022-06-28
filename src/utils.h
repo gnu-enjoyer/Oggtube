@@ -15,13 +15,6 @@ public:
 
 };
 
-class Utils {
-
-public:
-    static bool yt_to_string(const std::string& str, std::string &buff);
-
-};
-
 inline Logger const Log;
 
 #endif //OGGTUBE_UTILS_H

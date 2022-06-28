@@ -13,7 +13,7 @@ class Oggtube {
 public:
     void download(size_t pos);
 
-    bool parse(const char* in);
+    bool parse(const std::string& str, const std::string& itag=":249");
 
     inline std::string* getBufferPtr()  
     {

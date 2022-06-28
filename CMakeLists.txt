@@ -4,9 +4,15 @@ project(Oggtube)
 
 include(FetchContent)
 
-include (CTest)
-
 set(CMAKE_CXX_STANDARD 20)
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 include_directories(include)
 
@@ -47,6 +53,7 @@ pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
         )
 
 add_executable(${PROJECT_NAME}
+        src/router.cpp
         src/utils.cpp
         src/decipher.cpp
         src/oggtube.cpp
@@ -72,13 +79,4 @@ target_link_libraries(${PROJECT_NAME}
         
 enable_testing()
 
-add_test(oggtube_test
-        Oggtube
-        )
-
-find_program(VALGRIND "valgrind")
-
-if(VALGRIND)
-    add_custom_target(valgrind
-        COMMAND "${VALGRIND}" --tool=memcheck --track-origins=yes --leak-check=full --show-reachable=no --num-callers=20 --track-fds=yes $<TARGET_FILE:Oggtube>)
-endif()
+add_subdirectory(tests)

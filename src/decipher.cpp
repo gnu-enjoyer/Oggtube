@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "router.h"
 #include "decipher.h"
 #include "re2/re2.h"
 #include <regex>
@@ -89,7 +90,7 @@ std::string Decipher::LoadDecipherJS(const std::string &p_video_html) {
 
     std::string str_decipher = matches_player_url[1];
     std::string str_body;
-    Utils::yt_to_string(str_decipher.c_str(), str_body);
+    Parser::yt_to_string(str_decipher.c_str(), str_body);
 
     return str_body;
 }
