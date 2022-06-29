@@ -2,8 +2,10 @@
 #include "router.h"
 #include "decipher.h"
 #include "re2/re2.h"
+#include "ctre.hpp"
 #include <regex>
 
+static constexpr ctll::fixed_string expr = R"((\w\w):function\(.+?\)\{(.*?)\})";
 
 Regexes* Decipher::AllocateRegex() {
 
@@ -18,38 +20,108 @@ Regexes* Decipher::AllocateRegex() {
                        });
 
     return &rgx;
-
 }
 
 Regexes::~Regexes() {
 
-    for (auto &r : re_list){
-        delete(static_cast<RE2*>(r));
-    }
-
+    for (auto &r : re_list)
+        delete(static_cast<RE2*>(r));    
 }
 
 std::string Decipher::LoadDecipherFuncName(const std::string &p_decipher_js) {
+
     int x = 0;
+
     re2::StringPiece y;
+
     re2::StringPiece z;
 
+    for (auto &e: rPtr->re_list)
+        if (static_cast<RE2*>(e)->ok())
+            if (auto found = static_cast<RE2*>(e)->Match(p_decipher_js, 0, p_decipher_js.size(), RE2::UNANCHORED, &y, x))
+                {
+                    RE2::PartialMatch(p_decipher_js, *static_cast<RE2*>(e), &z);
+                    return z.ToString();
+                }           
 
-//    for (auto &e: rgx.re_list) {
-    for (auto &e: rPtr->re_list) {
-        if (static_cast<RE2*>(e)->ok()) {
-            auto found = static_cast<RE2*>(e)->Match(p_decipher_js, 0, p_decipher_js.size(), RE2::UNANCHORED, &y, x);
-
-            if (found) {
-                RE2::PartialMatch(p_decipher_js, *static_cast<RE2*>(e), &z);
-                return z.ToString();
-            }
-        }
-    }
-
-    Log.write("[Decrypt] Could not find decipher function name!", true);
     throw std::runtime_error("Could not find decipher function name!");
+}
 
+std::string Decipher::LoadDecipherJS(const std::string &p_video_html) {
+
+    auto m = ctre::search<R"((?:PLAYER_JS_URL|jsUrl)\"\s*:\s*\"([^"]+))">(p_video_html);
+
+    if(!m) throw std::runtime_error("Could not find player URL!");
+
+    std::string str_decipher = m.get<1>().to_string();
+
+    std::string str_body;
+
+    Parser::yt_to_string(str_decipher.c_str(), str_body);
+
+    return str_body;
+}
+
+std::string Decipher::LoadDecipherFuncDefinition(const std::string &p_decipher_js,
+                                                            const std::string &p_decipher_func_name) {
+
+    auto result = re2::RE2(p_decipher_func_name + R"(=function\(.+?\)\{(.+?)\})");
+
+    if(!result.ok()) throw std::runtime_error("Error constructing runtime regular expression");
+
+    re2::StringPiece z;
+    
+    RE2::PartialMatch(p_decipher_js, result, &z);    
+
+    return z.ToString();
+}
+
+std::string Decipher::LoadSubFuncName(const std::string &p_decipher_func_definition) {
+
+    auto m = ctre::match<R"((..)\.(..)\(.,(\d)+\))">(p_decipher_func_definition);
+
+    return m.to_string();
+}
+
+std::string Decipher::LoadSubFuncDefinition(const std::string &p_decipher_js,
+                                                       const std::string &p_sub_func_name) {
+    std::string fixed_sub_func_name(p_sub_func_name);
+    std::string special_chars = "@&+";   // TODO: add possible chars used by youtube
+    // m:    - is used in some urls
+
+    std::string fixed_char("\\");
+
+    for (auto c: special_chars)
+        if(auto pos = fixed_sub_func_name.find(c); pos != std::string::npos)
+        {
+            fixed_char.append(1, c);
+
+            fixed_sub_func_name.replace(pos, 1, fixed_char);     
+        }
+    
+    auto result = re2::RE2(R"(var\s)" + fixed_sub_func_name + R"(=\{((?:\n|.)*?)\};)");
+
+    re2::StringPiece z;
+    
+    RE2::PartialMatch(p_decipher_js, result, &z);  
+
+    return z.ToString();
+}
+
+void Decipher::ExtractSubFuncNames(const std::string &p_sub_func_definition) {
+   
+    for(auto & i: ctre::range<expr>(p_sub_func_definition))
+        if(auto m = ctre::match<expr>(i)){
+
+            std::string str_def = m.get<2>().to_string();
+
+            if(str_def.find("reverse") != std::string::npos)
+                m_sub_reverse_name = m.get<1>().to_string();
+            else if (str_def.find("splice") != std::string::npos)
+                m_sub_splice_name = m.get<1>().to_string();
+            else
+                m_sub_swap_name = m.get<1>().to_string();
+        }
 }
 
 /*
@@ -66,7 +138,7 @@ void Decipher::DecipherSignature(std::string *p_signature) {
         } else if (p_func_name == m_sub_swap_name) {
             SubSwap(p_signature, std::get<1>(sub));
         }
-    }
+    }    
 }
 
 void Decipher::LoadDecipher(const std::string &p_video_html) {
@@ -77,97 +149,6 @@ void Decipher::LoadDecipher(const std::string &p_video_html) {
     std::string sub_func_definition = LoadSubFuncDefinition(decipher_js, sub_func_name);
     ExtractSubFuncNames(sub_func_definition);
     ExtractDecipher(decipher_func_definition);
-}
-
-std::string Decipher::LoadDecipherJS(const std::string &p_video_html) {
-    std::regex expr_player_url(R"((?:PLAYER_JS_URL|jsUrl)\"\s*:\s*\"([^"]+))");
-    std::smatch matches_player_url;
-    std::regex_search(p_video_html, matches_player_url, expr_player_url);
-
-    if (matches_player_url.empty()) {
-        throw std::runtime_error("Could not find player URL!");
-    }
-
-    std::string str_decipher = matches_player_url[1];
-    std::string str_body;
-    Parser::yt_to_string(str_decipher.c_str(), str_body);
-
-    return str_body;
-}
-
-
-std::string Decipher::LoadDecipherFuncDefinition(const std::string &p_decipher_js,
-                                                            const std::string &p_decipher_func_name) {
-
-    //TBD: Move to RE2
-    std::regex expr_sub_func_definition(p_decipher_func_name + R"(=function\(.+?\)\{(.+?)\})");
-    std::smatch matches_sub_funcs;
-
-    std::regex_search(p_decipher_js, matches_sub_funcs, expr_sub_func_definition);
-    return matches_sub_funcs[1];
-}
-
-std::string Decipher::LoadSubFuncName(const std::string &p_decipher_func_definition) {
-
-    //TBD: Move to RE2
-    std::regex expr_sub_func_name(R"((..)\.(..)\(.,(\d)+\))");
-    std::smatch matches_sub_func;
-
-    std::stringstream ss(p_decipher_func_definition);
-    std::string item;
-    while (std::getline(ss, item, ';')) {
-        std::regex_search(item, matches_sub_func, expr_sub_func_name);
-        std::string str_sub_func_name = matches_sub_func[1];
-
-        if (!str_sub_func_name.empty())
-            return str_sub_func_name;
-    }
-
-    return "ERROR";
-}
-
-std::string Decipher::LoadSubFuncDefinition(const std::string &p_decipher_js,
-                                                       const std::string &p_sub_func_name) {
-    std::string fixed_sub_func_name(p_sub_func_name);
-    std::string special_chars = "@&+";   // TODO: add possible chars used by youtube
-    // m:    - is used in some urls
-
-    for (auto c: special_chars) {
-        auto pos = fixed_sub_func_name.find(c);
-        if (pos != std::string::npos) {
-            std::string fixed_char("\\");
-            fixed_char.append(1, c);
-            fixed_sub_func_name.replace(pos, 1, fixed_char);
-        }
-    }
-    //TBD: Move to RE2
-    std::regex expr_sub_func_definition(R"(var\s)" + fixed_sub_func_name + R"(=\{((?:\n|.)*?)\};)");
-    std::smatch matches_sub_func_definitions;
-    std::regex_search(p_decipher_js, matches_sub_func_definitions, expr_sub_func_definition);
-
-    return matches_sub_func_definitions[1];
-}
-
-void Decipher::ExtractSubFuncNames(const std::string &p_sub_func_definition) {
-
-    //TBD: Move to RE2
-    std::regex expr_sub_func_names(R"((\w\w):function\(.+?\)\{(.*?)\})");
-    std::sregex_iterator iter_end;
-    std::sregex_iterator iter_sub_func_names(p_sub_func_definition.begin(), p_sub_func_definition.end(),
-                                             expr_sub_func_names);
-
-    while (iter_sub_func_names != iter_end) {
-        std::smatch matches_sub_func_name = *iter_sub_func_names++;
-
-        std::string str_def = matches_sub_func_name[2];
-
-        if (str_def.find("reverse") != std::string::npos)
-            m_sub_reverse_name = matches_sub_func_name[1];
-        else if (str_def.find("splice") != std::string::npos)
-            m_sub_splice_name = matches_sub_func_name[1];
-        else
-            m_sub_swap_name = matches_sub_func_name[1];
-    }
 }
 
 void Decipher::ExtractDecipher(const std::string &p_decipher_func_definition) {
