@@ -3,7 +3,7 @@
 #include "decipher.h"
 #include "re2/re2.h"
 #include "ctre.hpp"
-#include <regex>
+#include <sstream>
 
 static constexpr ctll::fixed_string expr = R"((\w\w):function\(.+?\)\{(.*?)\})";
 
@@ -78,9 +78,7 @@ std::string Decipher::LoadDecipherFuncDefinition(const std::string &p_decipher_j
 
 std::string Decipher::LoadSubFuncName(const std::string &p_decipher_func_definition) {
 
-    auto m = ctre::match<R"((..)\.(..)\(.,(\d)+\))">(p_decipher_func_definition);
-
-    return m.to_string();
+    return ctre::match<R"((..)\.(..)\(.,(\d)+\))">(p_decipher_func_definition).to_string();
 }
 
 std::string Decipher::LoadSubFuncDefinition(const std::string &p_decipher_js,
@@ -124,6 +122,19 @@ void Decipher::ExtractSubFuncNames(const std::string &p_sub_func_definition) {
         }
 }
 
+void Decipher::ExtractDecipher(const std::string &p_decipher_func_definition) {
+
+    auto m1 = ctre::match<R"(\.(..)\(.,(\d+)\))">(p_decipher_func_definition);
+
+    std::stringstream ss(p_decipher_func_definition);
+
+    std::string item;
+
+    while (std::getline(ss, item, ';'))
+        if(auto m2 = ctre::search<R"(\.(..)\(.,(\d+)\))">(item))
+            m_decipher.emplace_back(m2.get<1>().to_string(), m1.get<2>().to_number());    
+}
+
 /*
  * Code below is copyright (c) 2018 Linus Kloeckner
 */
@@ -151,26 +162,6 @@ void Decipher::LoadDecipher(const std::string &p_video_html) {
     ExtractDecipher(decipher_func_definition);
 }
 
-void Decipher::ExtractDecipher(const std::string &p_decipher_func_definition) {
-
-    //TBD: Move to RE2
-    std::regex expr_sub_func(R"(\.(..)\(.,(\d+)\))");
-    std::smatch matches_sub_func;
-
-    std::stringstream ss(p_decipher_func_definition);
-    std::string item;
-    while (std::getline(ss, item, ';')) {
-        if (!std::regex_search(item, matches_sub_func, expr_sub_func))
-            continue;
-
-        std::string func_name = matches_sub_func[1];
-        std::string func_arg_test = matches_sub_func[2];
-        int func_arg = stoi(matches_sub_func[2]);
-
-        m_decipher.emplace_back(func_name, func_arg);
-    }
-}
-
 void Decipher::SubReverse(std::string *p_a) {
     std::reverse(p_a->begin(), p_a->end());
 }
@@ -184,4 +175,3 @@ void Decipher::SubSwap(std::string *p_a, int p_b) {
     (*p_a)[0] = (*p_a)[p_b % p_a->length()];
     (*p_a)[p_b] = c;
 }
-

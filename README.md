@@ -9,6 +9,9 @@ Default CMakeList assumes vcpkg or pkg-config, buildspec is for OneDev but shoul
 
 ### Recent changes
 
+#### v0.0.4
+- Replaced slow STL regex with compile-time regex thanks to [CTRE](https://github.com/hanickadot/compile-time-regular-expressions)
+
 #### v0.0.3
 - Migrated dev env to Gitpod 
 
