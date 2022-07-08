@@ -9,6 +9,13 @@
 
 const size_t DATA_CHUNK_SIZE = 4;
 
+static const httplib::Headers headers
+        {
+                {"User-Agent",      "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0"},
+                {"Accept-Encoding", "gzip"},
+                {"Keep-Alive",      "0"}
+        };
+
 void Router::listen(int port){
 
   httplib::Server svr; 
@@ -45,23 +52,15 @@ void Router::listen(int port){
 
 }
 
-bool Parser::yt_to_string(const std::string& str, std::string &buff) {
 
-    httplib::Headers headers = {
-                {"User-Agent",      "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0"},
-                {"Accept-Encoding", "gzip"},
-                {"Keep-Alive",      "0"}
-    };
+std::optional<std::string> Parser::yt_to_string(const std::string& str) {
 
     httplib::Client cli("https://www.youtube.com");
 
     cli.set_keep_alive(false);
 
-    auto res = cli.Get(str.c_str(), headers);    
+    if(auto res = cli.Get(str.c_str(), headers); res->status == 200)    
+      return res->body;
 
-    if(!res || res->status != 200) return false;
-
-    buff = res->body;
-
-    return res->status == 200;
+    return {};
 }

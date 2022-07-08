@@ -53,13 +53,7 @@ std::string Decipher::LoadDecipherJS(const std::string &p_video_html) {
 
     if(!m) throw std::runtime_error("Could not find player URL!");
 
-    std::string str_decipher = m.get<1>().to_string();
-
-    std::string str_body;
-
-    Parser::yt_to_string(str_decipher.c_str(), str_body);
-
-    return str_body;
+    return Parser::yt_to_string(m.get<1>().to_string()).value_or("Error deciphering Javascript");
 }
 
 std::string Decipher::LoadDecipherFuncDefinition(const std::string &p_decipher_js,

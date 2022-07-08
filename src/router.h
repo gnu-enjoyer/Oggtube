@@ -1,6 +1,7 @@
 #ifndef OGGTUBE_ROUTER_H
 #define OGGTUBE_ROUTER_H
 
+#include <optional>
 #include <string>
 
 class Router{
@@ -13,7 +14,7 @@ public:
 class Parser {
 
 public:
-    static bool yt_to_string(const std::string& str, std::string &buff);
+    static std::optional<std::string> yt_to_string(const std::string& str);
 
 };
 
