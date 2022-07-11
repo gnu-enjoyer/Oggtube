@@ -4,24 +4,10 @@
 #include <vector>
 #include <string>
 
-class Regexes {
-
-public:
-
-    ~Regexes();
-    std::vector<void*> re_list;
-    Regexes(std::initializer_list<void*> rgx) : re_list(rgx) {}
-
-};
-
 class Decipher {
     Decipher() = default;
 
-    static Regexes* AllocateRegex();
-    Regexes* rPtr = nullptr;
-
     explicit Decipher(const std::string &p_video_html) {
-            rPtr = AllocateRegex();
             LoadDecipher(p_video_html);
         }
 

@@ -1,50 +1,37 @@
-#include "utils.h"
-#include "router.h"
 #include "decipher.h"
-#include "re2/re2.h"
 #include "ctre.hpp"
+#include "re2/re2.h"
+#include "router.h"
+#include "utils.h"
 #include <sstream>
 
 static constexpr ctll::fixed_string expr = R"((\w\w):function\(.+?\)\{(.*?)\})";
 
-Regexes* Decipher::AllocateRegex() {
-
-    static Regexes rgx({
-                               new RE2(R"(\b[cs]\s*&&\s*[adf]\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\()"),
-                               new RE2(R"(\b[a-zA-Z0-9]+\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\()"),
-                               new RE2(R"(\bm=([a-zA-Z0-9$]{2})\(decodeURIComponent\(h\.s\)\))"),
-                               new RE2(R"(\bc&&\(c=([a-zA-Z0-9$]{2})\(decodeURIComponent\(c\)\))"),
-                               new RE2(R"((?:\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2})\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\);[a-zA-Z0-9$]{2}\.[a-zA-Z0-9$]{2}\(a,\d+\))"),
-                               new RE2(R"((?:\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2})\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\))"),
-                               new RE2(R"(([a-zA-Z0-9$]+)\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\))")
-                       });
-
-    return &rgx;
-}
-
-Regexes::~Regexes() {
-
-    for (auto &r : re_list)
-        delete(static_cast<RE2*>(r));    
-}
+static const std::array Rgx
+{
+    RE2(R"(\b[cs]\s*&&\s*[adf]\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\()"),
+    RE2(R"(\b[a-zA-Z0-9]+\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\()"),
+    RE2(R"(\bm=([a-zA-Z0-9$]{2})\(decodeURIComponent\(h\.s\)\))"),
+    RE2(R"(\bc&&\(c=([a-zA-Z0-9$]{2})\(decodeURIComponent\(c\)\))"),
+    RE2(R"((?:\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2})\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\);[a-zA-Z0-9$]{2}\.[a-zA-Z0-9$]{2}\(a,\d+\))"),
+    RE2(R"((?:\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2})\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\))"),
+    RE2(R"(([a-zA-Z0-9$]+)\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\))")
+};
 
 std::string Decipher::LoadDecipherFuncName(const std::string &p_decipher_js) {
 
-    int x = 0;
+  re2::StringPiece y;
 
-    re2::StringPiece y;
+  re2::StringPiece z;
 
-    re2::StringPiece z;
+  for (auto &i : Rgx) {
+    if (auto found = i.Match(p_decipher_js, 0, p_decipher_js.size(),
+                             RE2::UNANCHORED, &y, 0))
+      RE2::PartialMatch(p_decipher_js, i, &z);
+    return z.ToString();
+  }
 
-    for (auto &e: rPtr->re_list)
-        if (static_cast<RE2*>(e)->ok())
-            if (auto found = static_cast<RE2*>(e)->Match(p_decipher_js, 0, p_decipher_js.size(), RE2::UNANCHORED, &y, x))
-                {
-                    RE2::PartialMatch(p_decipher_js, *static_cast<RE2*>(e), &z);
-                    return z.ToString();
-                }           
-
-    throw std::runtime_error("Could not find decipher function name!");
+  throw std::runtime_error("Could not find decipher function name!");
 }
 
 std::string Decipher::LoadDecipherJS(const std::string &p_video_html) {
